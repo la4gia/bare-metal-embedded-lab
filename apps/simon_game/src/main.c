@@ -20,9 +20,11 @@
 #define RELEASED          0
 #define HIGH              1
 #define LOW               0
+#define COLOR_COUNT       4
+#define WIN               10
 
-#define LED_ON_MS  2000
-#define LED_GAP_MS 1000
+#define LED_ON_MS  500
+#define LED_GAP_MS 250
 
 #define BUTTON_PORT   GPIOB
 #define BUTTON_PIN_12 12
@@ -39,12 +41,6 @@ _Static_assert(WINDOW_CAP <= UINT32_MAX / CYCLES_PER_MS, "WINDOW_CYCLES must fit
 // initializer must be a compile time constant (set at startup)
 //   or "initializer element is not constant" error
 static volatile uint32_t isr_count = 0;
-static volatile uint8_t armed = 0;
-static volatile uint8_t hit = 0;
-static volatile uint32_t end_ts = 0;
-static volatile uint32_t start_ts = 0;
-static volatile uint32_t elapsed_ts = 0;
-
 static volatile uint8_t pressed[4];
 static volatile uint8_t state[4];
 static volatile uint32_t last_edge_ts[4];
@@ -113,18 +109,23 @@ void EXTI15_10_IRQHandler(void)
 void flush_presses(void)
 {
     uint8_t idx = 0;
-    while (idx < 4) {
+    while (idx < COLOR_COUNT) {
         pressed[idx] = 0;
         idx++;
     }
 }
 
-void play_sequence(const uint8_t *seq, uint8_t seq_len)
+void flush_leds(void)
 {
     gpio_clear(LED_PORT, LED_GREEN_PIN);
     gpio_clear(LED_PORT, LED_RED_PIN);
     gpio_clear(LED_PORT, LED_ORANGE_PIN);
     gpio_clear(LED_PORT, LED_BLUE_PIN);
+}
+
+void play_sequence(const uint8_t *seq, uint8_t seq_len)
+{
+    flush_leds();
 
     uint8_t idx = 0;
     while (idx < seq_len) {
@@ -134,6 +135,61 @@ void play_sequence(const uint8_t *seq, uint8_t seq_len)
         delay(ITERATIONS_PER_MS * LED_GAP_MS);
         idx++;
     }
+}
+
+uint8_t get_12_15(void)
+{
+    return (DWT->CYCCNT % 4) + 12;
+}
+
+void win_game(void)
+{
+    flush_leds();
+    uint8_t idx = 0;
+    while (idx < 2) {
+        gpio_toggle(LED_PORT, LED_BLUE_PIN);
+        gpio_toggle(LED_PORT, LED_ORANGE_PIN);
+        delay(ITERATIONS_PER_MS * LED_ON_MS);
+        gpio_toggle(LED_PORT, LED_BLUE_PIN);
+        gpio_toggle(LED_PORT, LED_ORANGE_PIN);
+        delay(ITERATIONS_PER_MS * LED_GAP_MS);
+        gpio_toggle(LED_PORT, LED_GREEN_PIN);
+        gpio_toggle(LED_PORT, LED_RED_PIN);
+        delay(ITERATIONS_PER_MS * LED_ON_MS);
+        gpio_toggle(LED_PORT, LED_GREEN_PIN);
+        gpio_toggle(LED_PORT, LED_RED_PIN);
+        delay(ITERATIONS_PER_MS * LED_GAP_MS);
+        idx++;
+    }
+    idx = 0;
+    while (idx < 3) {
+        gpio_toggle(LED_PORT, LED_BLUE_PIN);
+        gpio_toggle(LED_PORT, LED_ORANGE_PIN);
+        gpio_toggle(LED_PORT, LED_GREEN_PIN);
+        gpio_toggle(LED_PORT, LED_RED_PIN);
+        delay(ITERATIONS_PER_MS * LED_ON_MS);
+        gpio_toggle(LED_PORT, LED_BLUE_PIN);
+        gpio_toggle(LED_PORT, LED_ORANGE_PIN);
+        gpio_toggle(LED_PORT, LED_GREEN_PIN);
+        gpio_toggle(LED_PORT, LED_RED_PIN);
+        delay(ITERATIONS_PER_MS * LED_GAP_MS);
+        idx++;
+    }
+    delay(ITERATIONS_PER_MS * (LED_GAP_MS * 5));
+}
+
+void game_over(void)
+{
+    flush_leds();
+    uint8_t idx = 0;
+    while (idx < 3) {
+        gpio_toggle(LED_PORT, LED_RED_PIN);
+        delay(ITERATIONS_PER_MS * LED_ON_MS);
+        gpio_toggle(LED_PORT, LED_RED_PIN);
+        delay(ITERATIONS_PER_MS * LED_GAP_MS);
+        idx++;
+    }
+    delay(ITERATIONS_PER_MS * (LED_GAP_MS * 5));
 }
 
 int main(void)
@@ -174,17 +230,55 @@ int main(void)
     EXTI_SetPriority(EXTI15_10_IRQn, 1);
     EXTI_EnableIRQ(EXTI15_10_IRQn);
 
-    uint8_t sequence[5] = {LED_BLUE_PIN, LED_RED_PIN, LED_BLUE_PIN, LED_ORANGE_PIN, LED_GREEN_PIN};
-    play_sequence(sequence, (sizeof(sequence) / sizeof(sequence[0])));
-    flush_presses();
+    uint8_t sequence[WIN];
+    uint8_t slen = 0;
+    uint8_t user_log = 0;
+    uint8_t user_turn = 0;
 
+    delay(ITERATIONS_PER_MS * (LED_GAP_MS * get_12_15()));
     while (1) {
 
+        if (!user_turn) {
+            if (slen == WIN) {
+                win_game();
+                slen = 0;
+                user_log = 0;
+                user_turn = 0;
+                flush_leds();
+                flush_presses();
+            }
+            sequence[slen] = get_12_15();
+            slen++;
+            play_sequence(sequence, slen);
+            flush_presses();
+            user_turn = 1;
+        }
+
         uint8_t idx = 0;
-        for (idx = 0; idx < 4; idx++) {
+        for (idx = 0; idx < COLOR_COUNT; idx++) {
             if (pressed[idx]) {
                 pressed[idx] = 0;
+
+                if ((idx + BUTTON_PIN_12) != sequence[user_log]) {
+                    game_over();
+                    slen = 0;
+                    user_log = 0;
+                    user_turn = 0;
+                    flush_leds();
+                    flush_presses();
+                    break;
+                }
+
                 gpio_toggle(LED_PORT, (idx + BUTTON_PIN_12));
+                delay(ITERATIONS_PER_MS * LED_ON_MS);
+                gpio_toggle(LED_PORT, (idx + BUTTON_PIN_12));
+
+                user_log++;
+                if (user_log == slen) {
+                    user_log = 0;
+                    user_turn = 0;
+                    delay(ITERATIONS_PER_MS * (LED_GAP_MS * 3));
+                }
             }
         }
     }

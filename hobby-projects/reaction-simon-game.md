@@ -1,6 +1,9 @@
 # Project 3 — Reaction-time game → Simon-says
 
-Status: **Phase A complete, hardware-verified 2026-10-10; phase B in progress — input layer
+Status: **Done, hardware-verified (2026-11-02).** Phase A `apps/reaction_game`, phase B `apps/simon_game`.
+Sleep wrap-up dropped: the game only ever waits on the player, so `__WFI()` buys nothing here.
+
+Earlier status: **Phase A complete, hardware-verified 2026-10-10; phase B in progress — input layer
 (`apps/simon_game` ISR: both-edge EXTI on PB12-15, per-button RELEASED/PRESSED state, per-button
 `last_edge_ts`, 50 ms window gating only the press) hardware-verified 2026-10-18 on all four
 buttons incl. chord pairs. ISR -> `main` handoff done
