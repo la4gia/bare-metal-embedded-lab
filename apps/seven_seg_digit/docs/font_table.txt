@@ -1,0 +1,76 @@
+5161BS single-digit 7-segment display on a 74HC595: wiring and font table
+
+Reference for apps/seven_seg_digit. Parts: 5161BS (common anode, see the XLITX 5161BS datasheet, not included, and
+5161BS-pinout.txt in this folder) driven by an SN74HC595N (see the TI SN74HC595 datasheet).
+
+1. WIRING
+
+    595 pin   display pin   segment
+    QA        7             a
+    QB        6             b
+    QC        4             c
+    QD        2             d
+    QE        1             e
+    QF        9             f
+    QG        10            g
+    QH        5             dp
+
+    - Display pins 3 and 8 (common anode) go to 3V3, not 5V. The 595 runs from 3V3, so
+      an "off" output is 3.3 V. With the anode at 3.3 V an off segment has 0 V across it.
+      With the anode at 5 V it would have about 1.7 V, close to VF (1.8 V), and would glow.
+    - One 220 ohm resistor in series with each of the 8 segment lines.
+    - 595 OE (pin 13) to GND, SRCLR (pin 10) to 3V3.
+    - Control lines from the STM32F407: PA1 = SER, PA2 = SRCLK, PA3 = RCLK.
+
+2. CURRENT
+
+    I = (Vanode - VF - VOL) / R = (3.3 - 1.8 - ~0.2) / 220 = about 5.9 mA per lit segment
+    All 8 segments lit: about 47 mA, under the 595's package limit of about 70 mA.
+    Datasheet: VF 1.8 V typ at 10 mA, 30 mA continuous per segment, 200 mA peak at
+    1/10 duty and 10 kHz (the headroom that makes multiplexing work).
+
+3. BIT TO SEGMENT
+
+    After an MSB-first shift_out, QA = b0 ... QH = b7.
+
+    bit        b7   b6   b5   b4   b3   b2   b1   b0
+    595 pin    QH   QG   QF   QE   QD   QC   QB   QA
+    segment    dp   g    f    e    d    c    b    a
+
+4. COMMON ANODE MEANS 0 = LIT
+
+    The 595 sinks the current, so a segment lights when its bit is 0. Every wire byte is
+    the bitwise inverse of the usual "1 = lit" font table.
+
+    wire byte = ~(lit mask), where lit mask has a = 0x01, b = 0x02, c = 0x04, d = 0x08,
+    e = 0x10, f = 0x20, g = 0x40, dp = 0x80.
+    Example: "4" lights b, c, f, g -> lit mask 0x66 -> wire byte ~0x66 = 0x99.
+
+5. FONT TABLE (wire bytes, 0 = lit)
+
+    digit   hex    binary (b7 ... b0)   lit segments
+    0       0xC0   1100 0000            a b c d e f
+    1       0xF9   1111 1001            b c
+    2       0xA4   1010 0100            a b d e g
+    3       0xB0   1011 0000            a b c d g
+    4       0x99   1001 1001            b c f g
+    5       0x92   1001 0010            a c d f g
+    6       0x82   1000 0010            a c d e f g
+    7       0xF8   1111 1000            a b c
+    8       0x80   1000 0000            a b c d e f g
+    9       0x90   1001 0000            a b c d f g
+
+    How to read a row: each 0 is a lit segment. Take 7 = 1111 1000. The zeros are b2, b1,
+    b0, which are c, b, a, so a, b and c are lit.
+
+    Decimal point: bit 7. To light it, clear bit 7 of the wire byte (for example
+    0x99 & 0x7F = 0x19 shows "4."). The table above leaves dp off.
+
+    Shape variants: 6 and 9 are shown with their tails (a, and d). 7 is shown without f.
+    Some fonts differ. Change the lit mask and re-invert if you prefer another shape.
+
+6. HARDWARE CHECKS USED
+
+    0x00 -> all 8 segments lit (tests wiring without any font maths)
+    0x99 -> "4"
+    0xFF -> fully dark (confirms common-anode logic)

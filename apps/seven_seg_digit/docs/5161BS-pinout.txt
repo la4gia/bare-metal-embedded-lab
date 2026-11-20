@@ -1,0 +1,29 @@
+5161BS pinout
+
+The 5161BS is a single-digit, 0.56-inch, 7-segment LED display. It is common anode
+and has 10 pins arranged in two rows of five.
+
+To operate it, connect pins 3 and 8 (the common anode) to VCC. A segment lights when
+its cathode pin is pulled LOW through a current-limiting resistor.
+
+Pinout (pin 1 is at the bottom left when the digit is viewed from the front):
+
+    Pin  1   segment e (bottom left)
+    Pin  2   segment d (bottom)
+    Pin  3   common anode (connect to VCC)
+    Pin  4   segment c (bottom right)
+    Pin  5   decimal point (DP)
+    Pin  6   segment b (top right)
+    Pin  7   segment a (middle right)
+    Pin  8   common anode (connect to VCC)
+    Pin  9   segment f (middle)
+    Pin 10   segment g (top left)
+
+Pins 3 and 8 are tied together inside the package. Connecting both gives better
+current distribution and reduces voltage drop across the internal traces.
+
+Segment to pin lookup (same data, ordered by segment):
+
+    a = 7    b = 6    c = 4    d = 2    e = 1    f = 9    g = 10    dp = 5
+
+Source: XLITX 5161BS datasheet, page 2 schematic (not included in this repo).

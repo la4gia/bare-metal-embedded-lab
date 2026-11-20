@@ -206,6 +206,7 @@ gpio_init(GPIOD, 12, &cfg);
 | `reaction_game` | F4 | gpio, rcc, exti, uart | Button/LED reaction timer, EXTI interrupt, result over UART |
 | `simon_game` | F4 | gpio, rcc, exti, uart | Four-button Simon game: both-edge EXTI input with per-button debounce, ISR-to-main handoff |
 | `shift_register` | F4 | gpio, rcc | Bit-banged serial output to a 74HC595-style shift register (DS/SHCP/STCP on PA1-PA3) |
+| `seven_seg_digit` | F4 | gpio, rcc | One common-anode 7-segment digit (5161BS) on a 74HC595: 0-9 font table, decimal-point blink for out-of-range input |
 | `n6_clock_test` | F4, N6 | none | Empty `main` for bring-up of `SystemInit()` under a debugger |
 | `i2c_camera_test` | N6 | gpio, rcc, i2c | I2C register access to an IMX335 camera sensor |
 
@@ -338,7 +339,7 @@ because the chip is debugged in TrustZone Secure state.
   exist, so `driver_rcc` and `driver_i2c` have no sources.
 - **`driver_exti` is F4-only.** `exti.h` includes `stm32f407xx.h` directly. A
   second family needs the header made family-neutral and a per-family source,
-  like UART. As a result, `traffic_light`, `reaction_game`, `simon_game` and `shift_register` do not build for N6.
+  like UART. As a result, `traffic_light`, `reaction_game`, `simon_game`, `shift_register` and `seven_seg_digit` do not build for N6.
 - **`driver_i2c` has no F4 implementation.** The driver is skipped for that board.
 - **N6 clock tree is minimal.** `SystemInit()` runs HSE → PLL1, then IC1 (CPU
   clock) and IC2 (bus clock, divided by 3). Other IC dividers and peripheral

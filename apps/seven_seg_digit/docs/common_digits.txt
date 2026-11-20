@@ -1,0 +1,3 @@
+7-segment LED displays & numberic LED displays
+BS -> Common Anode
+AS -> Common Cathode
